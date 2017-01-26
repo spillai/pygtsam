@@ -22,6 +22,7 @@
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/BearingRangeFactor.h>
+#include <gtsam/slam/RangeFactor.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/slam/StereoFactor.h>
 #include <gtsam/slam/SmartProjectionFactor.h>
@@ -122,6 +123,8 @@ BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtPose3transform_to,
                                        gt::Pose3::transform_to, 1, 3)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtPose3transform_from,
                                        gt::Pose3::transform_from, 1, 3)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtPose2compose,
+                                       gt::Pose2::compose, 1, 3)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtISAM2update,
                                        gt::ISAM2::update, 0, 7)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtSimpleCameraproject, 
@@ -314,6 +317,13 @@ BOOST_PYTHON_MODULE(pygtsam)
       ("NoiseModelFactor1Pose3", py::no_init)
       ;
 
+  py::class_<gt::NoiseModelFactor1<gt::Point2>,
+             py::bases<gt::NoiseModelFactor>, 
+             boost::shared_ptr<gt::NoiseModelFactor1<gt::Point2> >,
+             boost::noncopyable > 
+      ("NoiseModelFactor1Point2", py::no_init)
+      ;
+
   py::class_<gt::NoiseModelFactor2<gt::Pose2, gt::Pose2>,
              py::bases<gt::NoiseModelFactor>, 
              boost::shared_ptr<gt::NoiseModelFactor2<gt::Pose2, gt::Pose2> >,
@@ -358,6 +368,14 @@ BOOST_PYTHON_MODULE(pygtsam)
        py::init<gt::Key, gt::Pose3, gt::SharedNoiseModel>())
       ;
 
+  py::class_<gt::PriorFactor<gt::Point2>,
+             py::bases<gt::NoiseModelFactor1<gt::Point2> >, 
+             boost::shared_ptr<gt::PriorFactor<gt::Point2> >,
+             boost::noncopyable> 
+      ("PriorFactorPoint2",
+       py::init<gt::Key, gt::Point2, gt::SharedNoiseModel>())
+      ;
+
   py::class_<gt::BetweenFactor<gt::Pose2>,
              py::bases<gt::NoiseModelFactor2<gt::Pose2, gt::Pose2> >, 
              boost::shared_ptr<gt::BetweenFactor<gt::Pose2> >,
@@ -389,6 +407,14 @@ BOOST_PYTHON_MODULE(pygtsam)
              boost::noncopyable> 
       ("BearingRangeFactorPose2Point2",
        py::init<gt::Key, gt::Key, gt::Rot2, double, gt::SharedNoiseModel>())
+      ;
+
+  py::class_<gt::RangeFactor<gt::Pose2, gt::Point2>,
+             py::bases<gt::NoiseModelFactor2<gt::Pose2, gt::Point2> >, 
+             boost::shared_ptr<gt::RangeFactor<gt::Pose2, gt::Point2> >,
+             boost::noncopyable> 
+      ("RangeFactorPose2Point2",
+       py::init<gt::Key, gt::Key, double, gt::SharedNoiseModel>())
       ;
 
   py::class_<gt::GenericProjectionFactor<gt::Pose3, gt::Point3, gt::Cal3_S2>,
@@ -641,6 +667,7 @@ BOOST_PYTHON_MODULE(pygtsam)
   // Values
   void (gt::Values::*gt_Values_insert1)(gt::Key j, const gt::Value& val) = &gt::Values::insert;
   void (gt::Values::*gt_Values_insert2)(const gt::Values& values) = &gt::Values::insert;
+  void (gt::Values::*gt_Values_update)(gt::Key j, const gt::Value& val) = &gt::Values::update;
   // typedef const gt::Value& (gt::Values::*gt_Values_at1)(gt::Key j) const;
   const gt::Value& (gt::Values::*gt_Values_at1)(gt::Key j) const = &gt::Values::at;
 
@@ -655,6 +682,7 @@ BOOST_PYTHON_MODULE(pygtsam)
       .def("insert", gt_Values_insert1)
       .def("insert", gt_Values_insert2)
       .def("clear", &gt::Values::clear)
+      .def("update", gt_Values_update)
       .def("at", gt_Values_at1,
            py::return_value_policy<py::copy_const_reference>())
 
@@ -805,7 +833,9 @@ BOOST_PYTHON_MODULE(pygtsam)
       .def("equals", &gt::Pose2::equals)
       .def("identity", &gt::Pose2::identity)
       .def("inverse", &gt::Pose2::inverse)
-      .def("compose", &gt::Pose2::compose)
+      .def("compose", &gt::Pose2::compose,
+           gtPose2compose
+           (py::args("p2", "H1", "H2")))
       .def("between", &gt::Pose2::between)
       .def("Dim", &gt::Pose2::Dim)
       .def("dim", &gt::Pose2::dim)
@@ -1037,6 +1067,8 @@ BOOST_PYTHON_MODULE(pygtsam)
       // .def("push_back", &gt::FactorGraph<gt::NonlinearFactor>::push_back)
       .def("__getitem__", FactorGraphNonlinearFactor_at)
       .def("resize", &gt::FactorGraph<gt::NonlinearFactor>::resize)
+      .def("replace", &gt::FactorGraph<gt::NonlinearFactor>::replace)
+      .def("reserve", &gt::FactorGraph<gt::NonlinearFactor>::reserve)
       .def("printf", &gt::FactorGraph<gt::NonlinearFactor>::print,
            (py::arg("s")="FactorGraph", py::arg("formatter")=gt::DefaultKeyFormatter))
       ;
