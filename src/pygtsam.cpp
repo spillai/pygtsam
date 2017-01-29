@@ -3,6 +3,7 @@
 
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <boost/python/stl_iterator.hpp>
 
 // pybot_eigen_types
 #include <pygtsam/pybot_eigen_types.hpp>
@@ -98,6 +99,16 @@ DEFINE_EXTRACT_VALUE_FROM_VALUES(extractPoint3, gt::Point3);
 //   return result;
 // }
 
+gt::ISAM2Result gtISAM2update_remove_list(gt::ISAM2& isam, const gt::NonlinearFactorGraph& newFactors, gt::Values& newTheta, const py::object& remove_list) {
+  std::vector<size_t> removeFactorIndices = std::vector<size_t>(py::stl_input_iterator<size_t>( remove_list ),
+                                                                py::stl_input_iterator<size_t>());
+  return isam.update(newFactors, newTheta, removeFactorIndices);
+}
+
+void gtISAM2print_factors(gt::ISAM2& isam) {
+  const gt::NonlinearFactorGraph& nl = isam.getFactorsUnsafe();
+  nl.print();
+}
 
 py::list extractKeys(const gt::Values& values) {
   py::list d;
@@ -1154,7 +1165,7 @@ BOOST_PYTHON_MODULE(pygtsam)
 
   py::class_<gt::ISAM2Result>
       ("ISAM2Result", py::init<>())
-      .def("print", &gt::ISAM2Result::print)
+      .def("printf", &gt::ISAM2Result::print)
       .def("getVariablesRelinearized",
            &gt::ISAM2Result::getVariablesRelinearized)
       .def("getVariablesReeliminated",
@@ -1182,6 +1193,7 @@ BOOST_PYTHON_MODULE(pygtsam)
              boost::noncopyable >
       ("ISAM2", py::init<>())
       // .def(py::init<gt::ISAM2Params>())
+      .def("updateRemoveFactors", gtISAM2update_remove_list)
       .def("update", &gt::ISAM2::update,
            gtISAM2update
            (py::args("newFactors", "newTheta", "removeFactorIndices",
@@ -1191,6 +1203,7 @@ BOOST_PYTHON_MODULE(pygtsam)
       // .def("calculateEstimateWithKey", gt_ISAM2_calculateEstimateWithKey)
       .def("calculateBestEstimate", &gt::ISAM2::calculateBestEstimate)
       .def("printStats", &gt::ISAM2::printStats)
+      .def("printFactors", gtISAM2print_factors)
       ;
 
   // py::class_<gt::NonlinearISAM>
