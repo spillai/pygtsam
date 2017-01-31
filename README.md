@@ -5,6 +5,7 @@ This previously lived [here](https://github.com/spillai/conda-recipes-slam/tree/
 
 ## Build Instructions
 GTSAM 3.2.1 (https://research.cc.gatech.edu/borg/sites/edu.borg/files/downloads/gtsam-3.2.1.zip)
+ - There is a bug with Factor removal in GTSAM 3.2.1, see: https://bitbucket.org/gtborg/gtsam/pull-requests/272/fix-recalculate-batch-step-when-variables/diff
  - build from source 
    - cd gtsam-3.2.1; mkdir build; cd build
    - cmake -DCMAKE_INSTALL_PREFIX=..../gtsam-3.2.1/ -DGTSAM_WITH_EIGEN_MKL=OFF -DGTSAM_WITH_EIGEN_MKL_OPENMP=OFF -DGTSAM_BUILD_EXAMPLES_ALWAYS=OFF -DGTSAM_BUILD_TESTS=OFF ..
