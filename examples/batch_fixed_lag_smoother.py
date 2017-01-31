@@ -95,7 +95,6 @@ class fixed_lag_smoother(object):
         self._free_factors = []
         self._pose_ids = []
         self._max_factor_id = 0
-        self._isam = ISAM2()
         self._factor_graph = NonlinearFactorGraph()
         self._values = Values()
         self._head_pose_id = None
@@ -109,14 +108,15 @@ class fixed_lag_smoother(object):
         self._values.insert(l_id, l_pos)
         self._num_landmarks += 1
         self._landmark_to_prior[l_id] = []
-        if not self._free_factors:
-            self._factor_graph.add(PriorFactorPoint2(l_id, prior_factor.point2, prior_factor.noise))
-            self._landmark_to_prior[l_id].append(self._max_factor_id)
-            self._max_factor_id += 1
-        else:
-            f_id = self._free_factors.pop()
-            self._factor_graph.replace(f_id, PriorFactorPoint2(l_id, prior_factor.point2, prior_factor.noise))
-            self._landmark_to_prior[l_id].append(f_id)           
+        if prior_factor is not None:
+            if not self._free_factors:
+                self._factor_graph.add(PriorFactorPoint2(l_id, prior_factor.point2, prior_factor.noise))
+                self._landmark_to_prior[l_id].append(self._max_factor_id)
+                self._max_factor_id += 1
+            else:
+                f_id = self._free_factors.pop()
+                self._factor_graph.replace(f_id, PriorFactorPoint2(l_id, prior_factor.point2, prior_factor.noise))
+                self._landmark_to_prior[l_id].append(f_id)           
         return l_id
 
     def add_pose(self, replace_noise, x=None, y=None, theta=None, prior_factor=None, odometry_factor=None):
