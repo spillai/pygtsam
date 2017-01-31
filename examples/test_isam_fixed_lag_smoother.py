@@ -59,9 +59,9 @@ for i in xrange(numreps):
 	fls.add_pose(replacementPriorNoise, None, None, None, None, odometry)
 	factor_roll = np.random.uniform(0,4)
 	if factor_roll < 1:		# 25% chance of adding a range measurement factor
-		fls.add_measurement(rangeFactorPose2Point2(lm, math.sqrt(2.0), rangeNoise))
+		fls.add_measurement(rangeFactorPose2Point2(lm, math.sqrt(2.0)+np.random.normal(0, 0.25), rangeNoise))
 	if factor_roll >= 3:	# 25% chance of adding a bearing/range measurement factor
-		fls.add_measurement(bearingRangeFactorPose2Point2(lm, -math.pi/4, math.sqrt(2.0), bearingRangeNoise))
+		fls.add_measurement(bearingRangeFactorPose2Point2(lm, -math.pi/4+np.random.normal(0, 0.1), math.sqrt(2.0)+np.random.normal(0, 0.25), bearingRangeNoise))
 	# iteratively optimize the factor graph and print it out along with the latest result
 	fls.update()
 	fls._isam.printFactors()
