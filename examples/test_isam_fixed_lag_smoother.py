@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+''' Example Usage of ISAM2 Fixed-Lag Smoother Class '''
+
+# Author: Nick R. Rypkema (rypkema@mit.edu)
+# License: MIT
 
 import math
 import numpy as np
