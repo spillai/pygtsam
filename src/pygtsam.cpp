@@ -1,4 +1,4 @@
-// Author(s): Sudeep Pillai (spillai@csail.mit.edu)
+// Author(s): Sudeep Pillai (spillai@csail.mit.edu), Nick Rypkema (rypkema@mit.edu)
 // License: MIT
 
 #include <boost/python.hpp>
