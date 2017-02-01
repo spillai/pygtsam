@@ -18,7 +18,7 @@ from pygtsam import StereoPoint2, Cal3_S2Stereo, GenericStereoFactor3D, GenericP
 from pygtsam import NonlinearEqualityPose3
 from pygtsam import Isotropic
 from pygtsam import Diagonal, Values, Marginals
-from pygtsam import ISAM2, NonlinearOptimizer, NonlinearFactorGraph, LevenbergMarquardtOptimizer, DoglegOptimizer, LevenbergMarquardtParams
+from pygtsam import ISAM2, ISAM2Params, NonlinearOptimizer, NonlinearFactorGraph, LevenbergMarquardtOptimizer, DoglegOptimizer, LevenbergMarquardtParams
 
 def symbol(ch, i): 
     return _symbol(ord(ch), i)
@@ -97,7 +97,9 @@ class fixed_lag_smoother(object):
         self._free_factors = []
         self._pose_ids = deque(maxlen=max_poses)
         self._max_factor_id = 0
-        self._isam = ISAM2()
+        self._isamParams = ISAM2Params()
+        self._isamParams.setEnableFindUnusedFactorSlots(False)  #reuses factors when toggled on
+        self._isam = ISAM2(self._isamParams) 
         self._factor_graph = NonlinearFactorGraph()
         self._values = Values()
         self._batch_optimized = False
@@ -244,8 +246,8 @@ class fixed_lag_smoother(object):
         self._values.clear()
         del self._poses_in_values[:]
         if len(self._free_factors) > 0:
-            for f in self._free_factors:
-                self._isam.updateRemoveFactors(self._factor_graph, self._values, [f])
+            self._isam.updateRemoveFactors(self._factor_graph, self._values, self._free_factors)
+            del self._free_factors[:]
         else:
             self._isam.update()
         self._isam_result = self._isam.calculateBestEstimate()
