@@ -100,13 +100,14 @@ DEFINE_EXTRACT_VALUE_FROM_VALUES(extractPoint3, gt::Point3);
 // }
 
 gt::ISAM2Result gtISAM2update_remove_list(gt::ISAM2& isam, const gt::NonlinearFactorGraph& newFactors, gt::Values& newTheta, const py::object& remove_list) {
-  std::vector<size_t> removeFactorIndices = std::vector<size_t>(py::stl_input_iterator<size_t>( remove_list ),
-                                                                py::stl_input_iterator<size_t>());
+  const std::vector<size_t> removeFactorIndices = std::vector<size_t>(py::stl_input_iterator<size_t>( remove_list ),
+                                                                      py::stl_input_iterator<size_t>());
   return isam.update(newFactors, newTheta, removeFactorIndices);
 }
 
-void gtISAM2print_factors(gt::ISAM2& isam) {
+void gt_ISAM2_printFactors(gt::ISAM2& isam) {
   const gt::NonlinearFactorGraph& nl = isam.getFactorsUnsafe();
+  std::cout << "ISAM2FactorGraph" << std::endl;
   nl.print();
 }
 
@@ -1159,9 +1160,26 @@ BOOST_PYTHON_MODULE(pygtsam)
       .def("saveGraph", gt_BayesTree_ISAM2Clique_saveGraph,
            (py::arg("s")="", py::arg("formatter")=gt::DefaultKeyFormatter))
       ;
-  
+
   // --------------------------------------------------------------------
   // ISAM2
+  void (gt::ISAM2Params::*gt_ISAM2Params_print)
+      (const std::string& s) const = &gt::ISAM2Params::print;
+
+  py::class_<gt::ISAM2Params>
+      ("ISAM2Params", py::init<>())
+      .def(py::init<gt::ISAM2GaussNewtonParams, double, int, bool, bool, gt::ISAM2Params::Factorization, bool, const gt::KeyFormatter&>(
+        py::args("optimizationParams", "relinearizeThreshold", "relinearizeSkip", "enableRelinearization", 
+          "evaluateNonlinearError", "factorization", "cacheLinearizedFactors", "keyFormatter")))
+      .def("printf", gt_ISAM2Params_print,
+           (py::arg("s")="ISAM2Params"))
+      .def("setEnableFindUnusedFactorSlots", &gt::ISAM2Params::setEnableFindUnusedFactorSlots)
+      ;
+
+  py::enum_<gt::ISAM2Params::Factorization>("ISAM2ParamsFactorization")
+      .value("QR", gt::ISAM2Params::Factorization::QR)
+      .value("CHOLESKY", gt::ISAM2Params::Factorization::CHOLESKY)
+      ;
 
   py::class_<gt::ISAM2Result>
       ("ISAM2Result", py::init<>())
@@ -1192,7 +1210,7 @@ BOOST_PYTHON_MODULE(pygtsam)
              py::bases<gt::BayesTree<gt::ISAM2Clique> >,
              boost::noncopyable >
       ("ISAM2", py::init<>())
-      // .def(py::init<gt::ISAM2Params>())
+      .def(py::init<gt::ISAM2Params>(py::args("ISAM2Params")))
       .def("updateRemoveFactors", gtISAM2update_remove_list)
       .def("update", &gt::ISAM2::update,
            gtISAM2update
@@ -1203,7 +1221,7 @@ BOOST_PYTHON_MODULE(pygtsam)
       // .def("calculateEstimateWithKey", gt_ISAM2_calculateEstimateWithKey)
       .def("calculateBestEstimate", &gt::ISAM2::calculateBestEstimate)
       .def("printStats", &gt::ISAM2::printStats)
-      .def("printFactors", gtISAM2print_factors)
+      .def("printFactors", gt_ISAM2_printFactors)
       ;
 
   // py::class_<gt::NonlinearISAM>
