@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-''' Simple 2D Fixed-Lag Smoother Class using pyGTSAM and ISAM2 '''
+''' Simple 2D Fixed-Lag Smoother Class using pyGTSAM and ISAM2 with Factor ID Recycling '''
 
 # Author: Nick R. Rypkema (rypkema@mit.edu)
 # License: MIT
@@ -95,9 +95,12 @@ class fixed_lag_smoother(object):
         self._pose_to_measurements = {}
         self._landmark_to_prior = {}
         self._free_factors = []
+        self._reuse_factors = []
         self._pose_ids = deque(maxlen=max_poses)
         self._max_factor_id = 0
-        self._isam = ISAM2() 
+        self._isamParams = ISAM2Params()
+        self._isamParams.setEnableFindUnusedFactorSlots(True)  # recycles factor IDs when toggled on
+        self._isam = ISAM2(self._isamParams)
         self._factor_graph = NonlinearFactorGraph()
         self._values = Values()
         self._batch_optimized = False
@@ -113,9 +116,13 @@ class fixed_lag_smoother(object):
         self._num_landmarks += 1
         self._landmark_to_prior[l_id] = []
         if prior_factor is not None:
+            if not self._reuse_factors:
+                f_id = self._max_factor_id
+                self._max_factor_id += 1
+            else:
+                f_id = self._reuse_factors.pop()
             self._factor_graph.add(PriorFactorPoint2(l_id, prior_factor.point2, prior_factor.noise))
-            self._landmark_to_prior[l_id].append(self._max_factor_id)
-            self._max_factor_id += 1    
+            self._landmark_to_prior[l_id].append(f_id)   
         return l_id
 
     def add_pose(self, replace_noise, x=None, y=None, theta=None, prior_factor=None, odometry_factor=None):
@@ -150,11 +157,15 @@ class fixed_lag_smoother(object):
             else:
                 tail_pos = self._isam_result.atPose2(tail_id)
             self._mark_factors_for_removal(tail_id)
+            if not self._reuse_factors:
+                f_id = self._max_factor_id
+                self._max_factor_id += 1
+            else:
+                f_id = self._reuse_factors.pop()
             self._factor_graph.add(PriorFactorPose2(tail_id, tail_pos, replace_noise.noise))
             self._pose_to_odometry_or_prior[tail_id] = []
             self._pose_to_measurements[tail_id] = []
-            self._pose_to_odometry_or_prior[tail_id].append(self._max_factor_id)
-            self._max_factor_id += 1
+            self._pose_to_odometry_or_prior[tail_id].append(f_id)
 
             if sel == 'no_factor':
                 p_id = self._add_no_factor_pose(x, y, theta)
@@ -186,9 +197,13 @@ class fixed_lag_smoother(object):
         self._num_poses += 1
         self._pose_to_odometry_or_prior[p_id] = []
         self._pose_to_measurements[p_id] = []
+        if not self._reuse_factors:
+            f_id = self._max_factor_id
+            self._max_factor_id += 1
+        else:
+            f_id = self._reuse_factors.pop()
         self._factor_graph.add(PriorFactorPose2(p_id, prior_factor.pose2, prior_factor.noise))
-        self._pose_to_odometry_or_prior[p_id].append(self._max_factor_id)
-        self._max_factor_id += 1
+        self._pose_to_odometry_or_prior[p_id].append(f_id)
         return p_id
 
     def _add_odometry_factor_pose(self, odometry_factor):
@@ -207,9 +222,13 @@ class fixed_lag_smoother(object):
         self._num_poses += 1
         self._pose_to_odometry_or_prior[p_id] = []
         self._pose_to_measurements[p_id] = []
+        if not self._reuse_factors:
+            f_id = self._max_factor_id
+            self._max_factor_id += 1
+        else:
+            f_id = self._reuse_factors.pop()
         self._factor_graph.add(factor)
-        self._pose_to_odometry_or_prior[p_id].append(self._max_factor_id)
-        self._max_factor_id += 1
+        self._pose_to_odometry_or_prior[p_id].append(f_id)
         return p_id
 
     def add_measurement(self, measurement_factor, pose2_id=None):
@@ -218,13 +237,21 @@ class fixed_lag_smoother(object):
         else:
             p_id = pose2_id
         if type(measurement_factor) is rangeFactorPose2Point2:
+            if not self._reuse_factors:
+                f_id = self._max_factor_id
+                self._max_factor_id += 1
+            else:
+                f_id = self._reuse_factors.pop()
             self._factor_graph.add(RangeFactorPose2Point2(p_id, measurement_factor.landmark_id, measurement_factor.range_val, measurement_factor.noise))
-            self._pose_to_measurements[p_id].append(self._max_factor_id)
-            self._max_factor_id += 1
+            self._pose_to_measurements[p_id].append(f_id)
         elif type(measurement_factor) is bearingRangeFactorPose2Point2:
+            if not self._reuse_factors:
+                f_id = self._max_factor_id
+                self._max_factor_id += 1
+            else:
+                f_id = self._reuse_factors.pop()
             self._factor_graph.add(BearingRangeFactorPose2Point2(p_id, measurement_factor.landmark_id, measurement_factor.bearing_val, measurement_factor.range_val, measurement_factor.noise))
-            self._pose_to_measurements[p_id].append(self._max_factor_id)
-            self._max_factor_id += 1
+            self._pose_to_measurements[p_id].append(f_id)
         else:
             raise TypeError("measurement_factor must be of type rangeFactorPose2Point2 or of type bearingRangeFactorPose2Point2")
 
@@ -245,6 +272,8 @@ class fixed_lag_smoother(object):
         del self._poses_in_values[:]
         if len(self._free_factors) > 0:
             self._isam.updateRemoveFactors(self._factor_graph, self._values, self._free_factors)
+            self._reuse_factors.extend(self._free_factors)  # extend our list of reusable factors with the factor IDs that we just removed from the graph
+            self._reuse_factors.sort(reverse=True)          # ISAM2 uses the smallest reusable factor ID when adding factors, so sort our list
             del self._free_factors[:]
         else:
             self._isam.update()
