@@ -1,8 +1,9 @@
-// Author(s): Sudeep Pillai (spillai@csail.mit.edu)
+// Author(s): Sudeep Pillai (spillai@csail.mit.edu), Nick Rypkema (rypkema@mit.edu)
 // License: MIT
 
 #include <boost/python.hpp>
 #include <boost/python/suite/indexing/vector_indexing_suite.hpp>
+#include <boost/python/stl_iterator.hpp>
 
 // pybot_eigen_types
 #include <pygtsam/pybot_eigen_types.hpp>
@@ -22,6 +23,7 @@
 #include <gtsam/slam/PriorFactor.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/BearingRangeFactor.h>
+#include <gtsam/slam/RangeFactor.h>
 #include <gtsam/slam/ProjectionFactor.h>
 #include <gtsam/slam/StereoFactor.h>
 #include <gtsam/slam/SmartProjectionFactor.h>
@@ -97,6 +99,17 @@ DEFINE_EXTRACT_VALUE_FROM_VALUES(extractPoint3, gt::Point3);
 //   return result;
 // }
 
+gt::ISAM2Result gtISAM2update_remove_list(gt::ISAM2& isam, const gt::NonlinearFactorGraph& newFactors, gt::Values& newTheta, const py::object& remove_list) {
+  const std::vector<size_t> removeFactorIndices = std::vector<size_t>(py::stl_input_iterator<size_t>( remove_list ),
+                                                                      py::stl_input_iterator<size_t>());
+  return isam.update(newFactors, newTheta, removeFactorIndices);
+}
+
+void gt_ISAM2_printFactors(gt::ISAM2& isam) {
+  const gt::NonlinearFactorGraph& nl = isam.getFactorsUnsafe();
+  std::cout << "ISAM2FactorGraph" << std::endl;
+  nl.print();
+}
 
 py::list extractKeys(const gt::Values& values) {
   py::list d;
@@ -122,6 +135,8 @@ BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtPose3transform_to,
                                        gt::Pose3::transform_to, 1, 3)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtPose3transform_from,
                                        gt::Pose3::transform_from, 1, 3)
+BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtPose2compose,
+                                       gt::Pose2::compose, 1, 3)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtISAM2update,
                                        gt::ISAM2::update, 0, 7)
 BOOST_PYTHON_MEMBER_FUNCTION_OVERLOADS(gtSimpleCameraproject, 
@@ -314,6 +329,13 @@ BOOST_PYTHON_MODULE(pygtsam)
       ("NoiseModelFactor1Pose3", py::no_init)
       ;
 
+  py::class_<gt::NoiseModelFactor1<gt::Point2>,
+             py::bases<gt::NoiseModelFactor>, 
+             boost::shared_ptr<gt::NoiseModelFactor1<gt::Point2> >,
+             boost::noncopyable > 
+      ("NoiseModelFactor1Point2", py::no_init)
+      ;
+
   py::class_<gt::NoiseModelFactor2<gt::Pose2, gt::Pose2>,
              py::bases<gt::NoiseModelFactor>, 
              boost::shared_ptr<gt::NoiseModelFactor2<gt::Pose2, gt::Pose2> >,
@@ -358,6 +380,14 @@ BOOST_PYTHON_MODULE(pygtsam)
        py::init<gt::Key, gt::Pose3, gt::SharedNoiseModel>())
       ;
 
+  py::class_<gt::PriorFactor<gt::Point2>,
+             py::bases<gt::NoiseModelFactor1<gt::Point2> >, 
+             boost::shared_ptr<gt::PriorFactor<gt::Point2> >,
+             boost::noncopyable> 
+      ("PriorFactorPoint2",
+       py::init<gt::Key, gt::Point2, gt::SharedNoiseModel>())
+      ;
+
   py::class_<gt::BetweenFactor<gt::Pose2>,
              py::bases<gt::NoiseModelFactor2<gt::Pose2, gt::Pose2> >, 
              boost::shared_ptr<gt::BetweenFactor<gt::Pose2> >,
@@ -389,6 +419,14 @@ BOOST_PYTHON_MODULE(pygtsam)
              boost::noncopyable> 
       ("BearingRangeFactorPose2Point2",
        py::init<gt::Key, gt::Key, gt::Rot2, double, gt::SharedNoiseModel>())
+      ;
+
+  py::class_<gt::RangeFactor<gt::Pose2, gt::Point2>,
+             py::bases<gt::NoiseModelFactor2<gt::Pose2, gt::Point2> >, 
+             boost::shared_ptr<gt::RangeFactor<gt::Pose2, gt::Point2> >,
+             boost::noncopyable> 
+      ("RangeFactorPose2Point2",
+       py::init<gt::Key, gt::Key, double, gt::SharedNoiseModel>())
       ;
 
   py::class_<gt::GenericProjectionFactor<gt::Pose3, gt::Point3, gt::Cal3_S2>,
@@ -641,6 +679,7 @@ BOOST_PYTHON_MODULE(pygtsam)
   // Values
   void (gt::Values::*gt_Values_insert1)(gt::Key j, const gt::Value& val) = &gt::Values::insert;
   void (gt::Values::*gt_Values_insert2)(const gt::Values& values) = &gt::Values::insert;
+  void (gt::Values::*gt_Values_update)(gt::Key j, const gt::Value& val) = &gt::Values::update;
   // typedef const gt::Value& (gt::Values::*gt_Values_at1)(gt::Key j) const;
   const gt::Value& (gt::Values::*gt_Values_at1)(gt::Key j) const = &gt::Values::at;
 
@@ -655,6 +694,7 @@ BOOST_PYTHON_MODULE(pygtsam)
       .def("insert", gt_Values_insert1)
       .def("insert", gt_Values_insert2)
       .def("clear", &gt::Values::clear)
+      .def("update", gt_Values_update)
       .def("at", gt_Values_at1,
            py::return_value_policy<py::copy_const_reference>())
 
@@ -805,7 +845,9 @@ BOOST_PYTHON_MODULE(pygtsam)
       .def("equals", &gt::Pose2::equals)
       .def("identity", &gt::Pose2::identity)
       .def("inverse", &gt::Pose2::inverse)
-      .def("compose", &gt::Pose2::compose)
+      .def("compose", &gt::Pose2::compose,
+           gtPose2compose
+           (py::args("p2", "H1", "H2")))
       .def("between", &gt::Pose2::between)
       .def("Dim", &gt::Pose2::Dim)
       .def("dim", &gt::Pose2::dim)
@@ -1037,6 +1079,8 @@ BOOST_PYTHON_MODULE(pygtsam)
       // .def("push_back", &gt::FactorGraph<gt::NonlinearFactor>::push_back)
       .def("__getitem__", FactorGraphNonlinearFactor_at)
       .def("resize", &gt::FactorGraph<gt::NonlinearFactor>::resize)
+      .def("replace", &gt::FactorGraph<gt::NonlinearFactor>::replace)
+      .def("reserve", &gt::FactorGraph<gt::NonlinearFactor>::reserve)
       .def("printf", &gt::FactorGraph<gt::NonlinearFactor>::print,
            (py::arg("s")="FactorGraph", py::arg("formatter")=gt::DefaultKeyFormatter))
       ;
@@ -1116,13 +1160,30 @@ BOOST_PYTHON_MODULE(pygtsam)
       .def("saveGraph", gt_BayesTree_ISAM2Clique_saveGraph,
            (py::arg("s")="", py::arg("formatter")=gt::DefaultKeyFormatter))
       ;
-  
+
   // --------------------------------------------------------------------
   // ISAM2
+  void (gt::ISAM2Params::*gt_ISAM2Params_print)
+      (const std::string& s) const = &gt::ISAM2Params::print;
+
+  py::class_<gt::ISAM2Params>
+      ("ISAM2Params", py::init<>())
+      .def(py::init<gt::ISAM2GaussNewtonParams, double, int, bool, bool, gt::ISAM2Params::Factorization, bool, const gt::KeyFormatter&>(
+        py::args("optimizationParams", "relinearizeThreshold", "relinearizeSkip", "enableRelinearization", 
+          "evaluateNonlinearError", "factorization", "cacheLinearizedFactors", "keyFormatter")))
+      .def("printf", gt_ISAM2Params_print,
+           (py::arg("s")="ISAM2Params"))
+      .def("setEnableFindUnusedFactorSlots", &gt::ISAM2Params::setEnableFindUnusedFactorSlots)
+      ;
+
+  py::enum_<gt::ISAM2Params::Factorization>("ISAM2ParamsFactorization")
+      .value("QR", gt::ISAM2Params::Factorization::QR)
+      .value("CHOLESKY", gt::ISAM2Params::Factorization::CHOLESKY)
+      ;
 
   py::class_<gt::ISAM2Result>
       ("ISAM2Result", py::init<>())
-      .def("print", &gt::ISAM2Result::print)
+      .def("printf", &gt::ISAM2Result::print)
       .def("getVariablesRelinearized",
            &gt::ISAM2Result::getVariablesRelinearized)
       .def("getVariablesReeliminated",
@@ -1149,7 +1210,8 @@ BOOST_PYTHON_MODULE(pygtsam)
              py::bases<gt::BayesTree<gt::ISAM2Clique> >,
              boost::noncopyable >
       ("ISAM2", py::init<>())
-      // .def(py::init<gt::ISAM2Params>())
+      .def(py::init<gt::ISAM2Params>(py::args("ISAM2Params")))
+      .def("updateRemoveFactors", gtISAM2update_remove_list)
       .def("update", &gt::ISAM2::update,
            gtISAM2update
            (py::args("newFactors", "newTheta", "removeFactorIndices",
@@ -1159,6 +1221,7 @@ BOOST_PYTHON_MODULE(pygtsam)
       // .def("calculateEstimateWithKey", gt_ISAM2_calculateEstimateWithKey)
       .def("calculateBestEstimate", &gt::ISAM2::calculateBestEstimate)
       .def("printStats", &gt::ISAM2::printStats)
+      .def("printFactors", gt_ISAM2_printFactors)
       ;
 
   // py::class_<gt::NonlinearISAM>
