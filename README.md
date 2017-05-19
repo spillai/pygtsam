@@ -8,6 +8,7 @@ GTSAM 3.2.1 (https://research.cc.gatech.edu/borg/sites/edu.borg/files/downloads/
  - There is a bug with Factor removal in GTSAM 3.2.1, see: https://bitbucket.org/gtborg/gtsam/pull-requests/272/fix-recalculate-batch-step-when-variables/diff
  - replace ..../gtsam-3.2.1/gtsam/nonlinear/ISAM2.cpp with https://github.com/spillai/pygtsam/blob/dev/fixedlag/factor_removal_fix/ISAM2.cpp; this is critical to enable fixed-lag smoothing
  - replace ..../gtsam-3.2.1/gtsam/nonlinear/ISAM2.h with https://github.com/spillai/pygtsam/blob/dev/fixedlag/factor_removal_fix/ISAM2.h; this allows us to enable/disable factor ID reuse after factor removal
+ - note: you may have issues with C++ Boost, especially with ver. 1.58 or greater; you may have to build ver. 1.57 from source at: https://sourceforge.net/projects/boost/files/boost/1.57.0/, using instructions at: http://www.boost.org/doc/libs/1_61_0/more/getting_started/unix-variants.html
  - build from source 
    - cd gtsam-3.2.1; mkdir build; cd build
    - cmake -DCMAKE_INSTALL_PREFIX=..../gtsam-3.2.1/ -DGTSAM_WITH_EIGEN_MKL=OFF -DGTSAM_WITH_EIGEN_MKL_OPENMP=OFF -DGTSAM_BUILD_EXAMPLES_ALWAYS=OFF -DGTSAM_BUILD_TESTS=OFF ..
