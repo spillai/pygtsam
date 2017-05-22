@@ -19,6 +19,8 @@ Eigen 3 (sudo apt-get install libeigen3-dev)
 
 Boost-Python (sudo apt-get install libboost-python-dev)
 
+SuiteSparse (sudo apt-get install libsuitesparse-dev)
+
 pygtsam
  - git clone https://github.com/spillai/pygtsam.git
  - build from source
